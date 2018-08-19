@@ -1,9 +1,9 @@
 <template>
     <div class="card card-default chat-box">
         <div class="card-header">
-            <b :class="{'text-danger': session_block}">
-                {{ friend.name }}
-                <span v-if="session_block">(ブロック中)</span>
+            <b :class="{'text-danger': session.block}">
+                {{ friend.name }} <span v-if="isTyping">さんが入力中です</span>
+                <span v-if="session.block">(ブロック中)</span>
             </b>
 
             <!-- 閉じる -->
@@ -20,9 +20,9 @@
                     <i class="fa fa-ellipsis-v px-4" aria-hidden="true"></i>
                 </a>
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a class="dropdown-item" href="#" v-if="session_block"
+                    <a class="dropdown-item" href="#" v-if="session.block && can"
                     @click.prevent="unblock">ブロック解除</a>
-                    <a class="dropdown-item" href="#" @click.prevent="block" v-else>ブロック</a>
+                    <a class="dropdown-item" href="#" @click.prevent="block" v-if="!session.block">ブロック</a>
                     <a class="dropdown-item" href="#" @click.prevent="clear">チャットをクリア</a>
                 </div>
             </div>
@@ -42,7 +42,7 @@
         <form class="card-footer" @submit.prevent="send">
             <div class="form-group">
                 <input type="text" class="form-control" placeholder="メッセージをかいて"
-                :disabled="session_block" v-model="message">
+                :disabled="session.block" v-model="message">
             </div>
         </form>
     </div>
@@ -55,7 +55,26 @@ export default {
         return {
             chats: [],
             message: null,
-            session_block: false
+            isTyping: false
+        }
+    },
+    computed: {
+        session() {
+          return this.friend.session;
+        },
+        can() {
+          return this.session.blocked_by == auth.id;
+        }
+    },
+    watch: {
+        message(value) {
+            if (value) {// https://laravel.com/docs/5.6/broadcasting#client-events
+                // pusherの方で'App setting'->'enable client events'を有効化しないとエラーになります
+                Echo.private(`Chat.${this.friend.session.id}`)
+                    .whisper('typing', {
+                        name: auth.name
+                    });
+            }
         }
     },
     methods: {
@@ -81,10 +100,14 @@ export default {
             axios.post(`/session/${this.friend.session.id}/clear`).then(res => this.chats = []);
         },
         block() {
-            this.session_block = true;
+            this.session.block = true;
+            axios.post(`/session/${this.friend.session.id}/block`)
+                .then(res => this.session.blocked_by = auth.id) // auth はapp.blade.phpの上の方に書いてある(あんまりよくないよね)
         },
         unblock() {
-            this.session_block = false;
+            this.session.block = false;
+            axios.post(`/session/${this.friend.session.id}/unblock`)
+                .then(res => this.session.blocked_by = null)
         },
         getAllMessages() {
           axios.get(`/session/${this.friend.session.id}/chats`)
@@ -106,6 +129,19 @@ export default {
         Echo.private(`Chat.${this.friend.session.id}`).listen('MessageReadEvent', e => {
             this.chats.forEach(chat => chat.id == e.chat.id ? chat.read_at = e.chat.read_at : '')
         });
+
+        Echo.private(`Chat.${this.friend.session.id}`).listen('BlockEvent', e => {
+            this.session.block = e.blocked;
+        });
+
+        // https://laravel.com/docs/5.6/broadcasting#client-events
+        Echo.private(`Chat.${this.friend.session.id}`)
+            .listenForWhisper('typing', (e) => {
+                this.isTyping = true;
+                setTimeout(() => {
+                    this.isTyping = false;
+                }, 2000);
+            });
     }
 }
 </script>

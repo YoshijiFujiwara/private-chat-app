@@ -20,6 +20,8 @@ Route::post('/session/create', 'SessionController@create');
 Route::get('/session/{session}/chats', 'ChatController@chats');
 Route::get('/session/{session}/read', 'ChatController@read');
 Route::post('/session/{session}/clear', 'ChatController@clear');
+Route::post('/session/{session}/block', 'BlockController@block');
+Route::post('/session/{session}/unblock', 'BlockController@unblock');
 Route::post('/send/{session}', 'ChatController@send');
 
 Auth::routes();
