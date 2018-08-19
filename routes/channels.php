@@ -18,3 +18,10 @@ Broadcast::channel('App.User.{id}', function ($user, $id) {
 Broadcast::channel('Chat', function($user) {
     return $user;
 });
+
+Broadcast::channel('Chat.{session}', function($user, \App\Models\Session $session) {
+    if ($user->id == $session->user1_id || $user->id == $session->user2_id) {
+        return true;
+    }
+    return false;
+});

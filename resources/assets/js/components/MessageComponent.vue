@@ -31,7 +31,7 @@
         <div class="card-body" v-chat-scroll>
             <p class="card-text"
                v-for="chat in chats"
-               :key="chat.message"
+               :key="chat.id"
                :class="{'text-right':chat.type == 0}"
             >{{ chat.message }}</p>
         </div>
@@ -84,10 +84,19 @@ export default {
         getAllMessages() {
           axios.get(`/session/${this.friend.session.id}/chats`)
               .then(res => this.chats = res.data.data)
+        },
+        read() {
+            axios.get(`/session/${this.friend.session.id}/read`);
         }
     },
     created() {
+        this.read();
         this.getAllMessages();
+
+        Echo.private(`Chat.${this.friend.session.id}`).listen('PrivateChatEvent', e => {
+            this.read(); // ?????
+            this.chats.push({message: e.content, type: 1, send_at: "たった今"})
+        });
     }
 }
 </script>

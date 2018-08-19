@@ -18,6 +18,7 @@ Route::get('/', function () {
 Route::get('/getFriends', 'HomeController@getFriends');
 Route::post('/session/create', 'SessionController@create');
 Route::get('/session/{session}/chats', 'ChatController@chats');
+Route::get('/session/{session}/read', 'ChatController@read');
 Route::post('/send/{session}', 'ChatController@send');
 
 Auth::routes();

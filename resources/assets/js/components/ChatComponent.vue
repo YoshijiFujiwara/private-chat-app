@@ -12,7 +12,12 @@
                         @click.prevent="openChat(friend)"
                         v-for="friend in friends"
                         :key="friend.id">
-                            <a href="">{{friend.name}}</a>
+                            <a href="">
+                                {{friend.name}}
+                                <span class="text-danger"
+                                      v-if="friend.session && (friend.session.unreadCount > 0)"
+                                >{{friend.session.unreadCount}}</span>
+                            </a>
                             <i class="fa fa-circle float-right text-success" 
                             v-if="friend.online"
                             aria-hidden="true"></i>
@@ -49,7 +54,12 @@
                 friend.session.open = false;
             },
             getFriends() {
-                axios.get('/getFriends').then(res => this.friends = res.data.data);
+                axios.get('/getFriends').then(res => {
+                  this.friends = res.data.data;
+                  this.friends.forEach(friend => {
+                    if (friend.session) this.listenForEverySession(friend);
+                  })
+                });
                 // axios.get('/getFriends').then(res => console.log(res));
             },
             openChat(friend) {
@@ -60,17 +70,23 @@
 
                 if (friend.session) {    
                     friend.session.open = true;
+                    friend.session.unreadCount = 0;
                 } else {
                     // セッションを作成
                     this.createSession(friend);
                 }
             },
             createSession(friend) {
-              axios.post('/session/create', {friend_id: friend.id})
-                  .then(res => {
-                      friend.session = res.data.data;
-                      friend.session.open = true;
-                  });
+				axios.post('/session/create', {friend_id: friend.id})
+					.then(res => {
+						friend.session = res.data.data;
+						friend.session.open = true;
+					});
+            },
+            listenForEverySession(friend) {
+                Echo.private(`Chat.${friend.session.id}`).listen('PrivateChatEvent', e => {
+                    friend.session.open ? "" : friend.session.unreadCount++;
+                });
             }
         },
         created() {
@@ -79,7 +95,9 @@
             Echo.channel('Chat').listen('SessionEvent', e => {
                 // 相手の方がセッションを作成したら、そのセッション情報をfriend.sessionに格納する
                 let friend = this.friends.find(friend => friend.id == e.session_by);
-                friend.session = e.session;
+				friend.session = e.session;
+				// 最初にセッションを作成して、メッセージを送信したときに、相手側の未読数を増やすため
+				this.listenForEverySession(friend);
             });
 
             // https://laravel.com/docs/5.6/broadcasting#presence-channels

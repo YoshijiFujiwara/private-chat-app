@@ -47459,6 +47459,11 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 //
 //
 //
+//
+//
+//
+//
+//
 
 
 
@@ -47478,7 +47483,10 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             var _this = this;
 
             axios.get('/getFriends').then(function (res) {
-                return _this.friends = res.data.data;
+                _this.friends = res.data.data;
+                _this.friends.forEach(function (friend) {
+                    if (friend.session) _this.listenForEverySession(friend);
+                });
             });
             // axios.get('/getFriends').then(res => console.log(res));
         },
@@ -47490,6 +47498,7 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 
             if (friend.session) {
                 friend.session.open = true;
+                friend.session.unreadCount = 0;
             } else {
                 // セッションを作成
                 this.createSession(friend);
@@ -47499,6 +47508,11 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             axios.post('/session/create', { friend_id: friend.id }).then(function (res) {
                 friend.session = res.data.data;
                 friend.session.open = true;
+            });
+        },
+        listenForEverySession: function listenForEverySession(friend) {
+            Echo.private('Chat.' + friend.session.id).listen('PrivateChatEvent', function (e) {
+                friend.session.open ? "" : friend.session.unreadCount++;
             });
         }
     },
@@ -47513,6 +47527,8 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
                 return friend.id == e.session_by;
             });
             friend.session = e.session;
+            // 最初にセッションを作成して、メッセージを送信したときに、相手側の未読数を増やすため
+            _this2.listenForEverySession(friend);
         });
 
         // https://laravel.com/docs/5.6/broadcasting#presence-channels
@@ -48064,10 +48080,21 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             axios.get('/session/' + this.friend.session.id + '/chats').then(function (res) {
                 return _this.chats = res.data.data;
             });
+        },
+        read: function read() {
+            axios.get('/session/' + this.friend.session.id + '/read');
         }
     },
     created: function created() {
+        var _this2 = this;
+
+        this.read();
         this.getAllMessages();
+
+        Echo.private('Chat.' + this.friend.session.id).listen('PrivateChatEvent', function (e) {
+            _this2.read(); // ?????
+            _this2.chats.push({ message: e.content, type: 1, send_at: "たった今" });
+        });
     }
 });
 
@@ -48174,7 +48201,7 @@ var render = function() {
         return _c(
           "p",
           {
-            key: chat.message,
+            key: chat.id,
             staticClass: "card-text",
             class: { "text-right": chat.type == 0 }
           },
@@ -48295,7 +48322,16 @@ var render = function() {
                 },
                 [
                   _c("a", { attrs: { href: "" } }, [
-                    _vm._v(_vm._s(friend.name))
+                    _vm._v(
+                      "\n                            " +
+                        _vm._s(friend.name) +
+                        "\n                            "
+                    ),
+                    friend.session && friend.session.unreadCount > 0
+                      ? _c("span", { staticClass: "text-danger" }, [
+                          _vm._v(_vm._s(friend.session.unreadCount))
+                        ])
+                      : _vm._e()
                   ]),
                   _vm._v(" "),
                   friend.online
