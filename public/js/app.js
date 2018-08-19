@@ -48037,6 +48037,9 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 //
 //
 //
+//
+//
+//
 
 /* harmony default export */ __webpack_exports__["default"] = ({
     props: ['friend'],
@@ -48066,13 +48069,17 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             }
         },
         pushToChats: function pushToChats(message) {
-            this.chats.push({ message: message, type: 0, send_at: 'たった今' });
+            this.chats.push({ message: message, type: 0, read_at: null, send_at: 'たった今' });
         },
         close: function close() {
             this.$emit('close');
         },
         clear: function clear() {
-            this.chats = [];
+            var _this2 = this;
+
+            axios.post('/session/' + this.friend.session.id + '/clear').then(function (res) {
+                return _this2.chats = [];
+            });
         },
         block: function block() {
             this.session_block = true;
@@ -48081,10 +48088,10 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             this.session_block = false;
         },
         getAllMessages: function getAllMessages() {
-            var _this2 = this;
+            var _this3 = this;
 
             axios.get('/session/' + this.friend.session.id + '/chats').then(function (res) {
-                return _this2.chats = res.data.data;
+                return _this3.chats = res.data.data;
             });
         },
         read: function read() {
@@ -48092,18 +48099,18 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
         }
     },
     created: function created() {
-        var _this3 = this;
+        var _this4 = this;
 
         this.read();
         this.getAllMessages();
 
         Echo.private('Chat.' + this.friend.session.id).listen('PrivateChatEvent', function (e) {
-            if (_this3.friend.session.open) _this3.read(); // ?????
-            _this3.chats.push({ message: e.content, type: 1, send_at: "たった今" });
+            if (_this4.friend.session.open) _this4.read(); // ?????
+            _this4.chats.push({ message: e.content, type: 1, send_at: "たった今" });
         });
 
         Echo.private('Chat.' + this.friend.session.id).listen('MessageReadEvent', function (e) {
-            _this3.chats.forEach(function (chat) {
+            _this4.chats.forEach(function (chat) {
                 return chat.id == e.chat.id ? chat.read_at = e.chat.read_at : '';
             });
         });
@@ -48220,7 +48227,14 @@ var render = function() {
               "text-success": chat.read_at != null
             }
           },
-          [_vm._v(_vm._s(chat.message))]
+          [
+            _vm._v("\n            " + _vm._s(chat.message) + "\n            "),
+            _c("br"),
+            _vm._v(" "),
+            _c("span", { staticStyle: { "font-size": "8px" } }, [
+              _vm._v(_vm._s(chat.read_at))
+            ])
+          ]
         )
       })
     ),
@@ -48285,7 +48299,7 @@ var staticRenderFns = [
       },
       [
         _c("i", {
-          staticClass: "fa fa-ellipsis-v",
+          staticClass: "fa fa-ellipsis-v px-4",
           attrs: { "aria-hidden": "true" }
         })
       ]

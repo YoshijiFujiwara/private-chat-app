@@ -37,4 +37,11 @@ class ChatController extends Controller
             broadcast(new MessageReadEvent(new ChatResource($chat), $chat->session_id));
         }
     }
+
+    public function clear(Session $session)
+    {
+        $session->deleteChats();
+        $session->chats->count() == 0 ? $session->deleteMessages() : '';
+        return response('クリアしました', 200);
+    }
 }
