@@ -48050,12 +48050,18 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 
     methods: {
         send: function send() {
+            var _this = this;
+
             if (this.message) {
                 this.pushToChats(this.message);
                 axios.post('/send/' + this.friend.session.id, {
                     content: this.message,
                     to_user: this.friend.id
+                }) // レスポンスのデータと交換することで'read_at'を得る
+                .then(function (res) {
+                    return _this.chats[_this.chats.length - 1].id = res.data;
                 });
+
                 this.message = null;
             }
         },
@@ -48075,10 +48081,10 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
             this.session_block = false;
         },
         getAllMessages: function getAllMessages() {
-            var _this = this;
+            var _this2 = this;
 
             axios.get('/session/' + this.friend.session.id + '/chats').then(function (res) {
-                return _this.chats = res.data.data;
+                return _this2.chats = res.data.data;
             });
         },
         read: function read() {
@@ -48086,14 +48092,20 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
         }
     },
     created: function created() {
-        var _this2 = this;
+        var _this3 = this;
 
         this.read();
         this.getAllMessages();
 
         Echo.private('Chat.' + this.friend.session.id).listen('PrivateChatEvent', function (e) {
-            _this2.read(); // ?????
-            _this2.chats.push({ message: e.content, type: 1, send_at: "たった今" });
+            if (_this3.friend.session.open) _this3.read(); // ?????
+            _this3.chats.push({ message: e.content, type: 1, send_at: "たった今" });
+        });
+
+        Echo.private('Chat.' + this.friend.session.id).listen('MessageReadEvent', function (e) {
+            _this3.chats.forEach(function (chat) {
+                return chat.id == e.chat.id ? chat.read_at = e.chat.read_at : '';
+            });
         });
     }
 });
@@ -48203,7 +48215,10 @@ var render = function() {
           {
             key: chat.id,
             staticClass: "card-text",
-            class: { "text-right": chat.type == 0 }
+            class: {
+              "text-right": chat.type == 0,
+              "text-success": chat.read_at != null
+            }
           },
           [_vm._v(_vm._s(chat.message))]
         )

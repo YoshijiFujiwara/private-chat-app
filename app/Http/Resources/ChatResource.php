@@ -18,7 +18,14 @@ class ChatResource extends JsonResource
             'id' => $this->id,
             'message' => $this->message['content'],
             'type' => $this->type,
+            'read_at' => $this->read_at_timing($this),
             'send_at' => $this->created_at->diffForHumans()
         ];
+    }
+
+    private function read_at_timing($_this)
+    {
+        $read_at = $_this->type == 0 ? $_this->read_at : null;
+        return $read_at ? $read_at->diffForHumans() : null;
     }
 }
